@@ -2,9 +2,14 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
 
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script
+    src="https://telegram.org/js/telegram-web-app.js"
+  ></script>
 
   <title>Игра 21</title>
 
@@ -35,7 +40,11 @@
         var(--background) 100%
       );
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+      font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        Arial,
+        sans-serif;
     }
 
     .app {
@@ -145,7 +154,8 @@
       font-weight: 800;
     }
 
-    .stake-buttons {
+    .stake-buttons,
+    .raise-buttons {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 9px;
@@ -168,7 +178,8 @@
     }
 
     button.secondary,
-    .stake-button {
+    .stake-button,
+    .raise-button {
       border: 1px solid var(--border);
       background: rgba(255, 255, 255, .10);
       color: var(--text);
@@ -252,10 +263,26 @@
       font-weight: 500;
     }
 
-    .actions {
+    .actions,
+    .offer-actions {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 10px;
+    }
+
+    .raise-panel {
+      text-align: center;
+    }
+
+    .raise-panel h2 {
+      margin: 0 0 12px;
+      color: var(--gold);
+      font-size: 19px;
+    }
+
+    .raise-panel p {
+      color: var(--muted);
+      line-height: 1.5;
     }
 
     .result {
@@ -293,7 +320,9 @@
         </p>
       </div>
 
-      <div class="stake-title">Выбери ставку 🪙</div>
+      <div class="stake-title">
+        Выбери ставку 🪙
+      </div>
 
       <div class="stake-buttons">
         <button
@@ -329,7 +358,11 @@
         <div class="hero-icon">🔎</div>
         <h1>Ищем соперника</h1>
 
-        <p>Ставка: <span id="waitingStake">10</span> 🪙</p>
+        <p>
+          Ставка:
+          <span id="waitingStake">10</span> 🪙
+        </p>
+
         <p>До игры с ботом осталось:</p>
 
         <div class="countdown">
@@ -337,7 +370,10 @@
           <div class="countdown-unit">секунд</div>
         </div>
 
-        <p>Если игрок найдётся раньше, партия начнётся сразу.</p>
+        <p>
+          Если игрок найдётся раньше,
+          партия начнётся сразу.
+        </p>
       </div>
 
       <button
@@ -368,17 +404,23 @@
       <div class="panel">
         <div class="panel-title">
           <h2>Твои карты</h2>
-          <span id="myPoints" class="score">0 очков</span>
+          <span id="myPoints" class="score">
+            0 очков
+          </span>
         </div>
 
         <div id="myCards" class="cards"></div>
+
         <div id="gameStake" class="caption"></div>
       </div>
 
       <div id="result" class="result hidden"></div>
 
       <div id="actions" class="actions">
-        <button id="drawButton" onclick="play('draw')">
+        <button
+          id="drawButton"
+          onclick="play('draw')"
+        >
           ＋ Ещё карту
         </button>
 
@@ -389,6 +431,58 @@
         >
           Хватит
         </button>
+      </div>
+
+      <div id="raisePanel" class="panel raise-panel hidden">
+        <h2>Повысить ставку</h2>
+
+        <p>
+          Выбранная сумма добавится к ставке
+          каждого игрока.
+        </p>
+
+        <div class="raise-buttons">
+          <button
+            class="raise-button"
+            data-raise="10"
+            onclick="raiseAction('propose', 10)"
+          >+10</button>
+
+          <button
+            class="raise-button"
+            data-raise="20"
+            onclick="raiseAction('propose', 20)"
+          >+20</button>
+
+          <button
+            class="raise-button"
+            data-raise="50"
+            onclick="raiseAction('propose', 50)"
+          >+50</button>
+        </div>
+      </div>
+
+      <div id="offerPanel" class="panel raise-panel hidden">
+        <h2>Предложение о повышении</h2>
+
+        <p id="offerText"></p>
+
+        <div id="offerActions" class="offer-actions hidden">
+          <button
+            id="acceptButton"
+            onclick="raiseAction('accept')"
+          >
+            Принять
+          </button>
+
+          <button
+            id="declineButton"
+            class="secondary"
+            onclick="raiseAction('decline')"
+          >
+            Отказаться
+          </button>
+        </div>
       </div>
 
       <button
@@ -434,6 +528,13 @@
           busy || Number(button.dataset.stake) > value;
       }
 
+      for (const button of document.querySelectorAll(
+        ".raise-button"
+      )) {
+        button.disabled =
+          busy || Number(button.dataset.raise) > value;
+      }
+
       document.getElementById("searchButton").disabled =
         busy || selectedStake > value;
     }
@@ -460,6 +561,8 @@
         "cancelButton",
         "drawButton",
         "standButton",
+        "acceptButton",
+        "declineButton",
         "again"
       ]) {
         document.getElementById(id).disabled = value;
@@ -481,7 +584,8 @@
       });
 
       if (!response.ok) {
-        let detail = `Ошибка сервера: ${response.status}`;
+        let detail =
+          `Ошибка сервера: ${response.status}`;
 
         try {
           const data = await response.json();
@@ -498,14 +602,10 @@
             }).join("; ");
           }
         } catch (_) {
-          // Если ответ не JSON, покажем номер ошибки.
+          // Покажем код ошибки, если ответ не JSON.
         }
 
-        throw new Error(
-          response.status === 422
-            ? `Ошибка 422: ${detail}`
-            : detail
-        );
+        throw new Error(detail);
       }
 
       return response.json();
@@ -528,7 +628,10 @@
       const suitElement = document.createElement("small");
       suitElement.textContent = suit;
 
-      card.append(rankElement, suitElement);
+      card.append(
+        rankElement,
+        suitElement
+      );
 
       return card;
     }
@@ -549,12 +652,16 @@
       }
 
       for (const label of labels) {
-        container.appendChild(makeCard(label));
+        container.appendChild(
+          makeCard(label)
+        );
       }
     }
 
     function updateTimerDisplay() {
-      if (timerSeconds === null) return;
+      if (timerSeconds === null) {
+        return;
+      }
 
       const elapsed = Math.floor(
         (Date.now() - timerUpdatedAt) / 1000
@@ -565,8 +672,9 @@
         timerSeconds - elapsed
       );
 
-      document.getElementById("timerNumber").textContent =
-        seconds;
+      document.getElementById(
+        "timerNumber"
+      ).textContent = seconds;
     }
 
     function render(state) {
@@ -578,17 +686,21 @@
 
       if (state.status === "idle") {
         timerSeconds = null;
+
         message.textContent =
           "Набери 21 очко и обыграй соперника.";
+
         show("menu");
         return;
       }
 
       if (state.status === "waiting") {
-        message.textContent = "Подбираем игрока…";
+        message.textContent =
+          "Подбираем игрока…";
 
-        document.getElementById("waitingStake").textContent =
-          state.stake;
+        document.getElementById(
+          "waitingStake"
+        ).textContent = state.stake;
 
         timerSeconds = state.seconds_left;
         timerUpdatedAt = Date.now();
@@ -599,60 +711,83 @@
       }
 
       if (
-        state.status !== "playing" &&
-        state.status !== "result"
+        state.status !== "playing"
+        && state.status !== "result"
       ) {
         return;
       }
 
       timerSeconds = null;
 
-      const finished = state.status === "result";
+      const finished =
+        state.status === "result";
+
       show("game");
 
-      document.getElementById("opponent").textContent =
-        state.is_bot
-          ? "Бот 🤖"
-          : `Соперник: ${state.opponent_name}`;
+      document.getElementById(
+        "opponent"
+      ).textContent = state.is_bot
+        ? "Бот 🤖"
+        : `Соперник: ${state.opponent_name}`;
 
-      document.getElementById("myPoints").textContent =
+      document.getElementById(
+        "myPoints"
+      ).textContent =
         `${state.my_points} очков`;
 
-      document.getElementById("gameStake").textContent =
-        `Ставка: ${state.stake} 🪙`;
+      document.getElementById(
+        "gameStake"
+      ).textContent =
+        `Текущая ставка каждого: ${state.stake} 🪙`;
 
-      displayCards("myCards", state.my_cards);
+      displayCards(
+        "myCards",
+        state.my_cards
+      );
 
       displayCards(
         "opponentCards",
-        finished ? state.opponent_cards : [],
+        finished
+          ? state.opponent_cards
+          : [],
         !finished
       );
 
-      document.getElementById("opponentScore").textContent =
-        finished
-          ? `${state.opponent_points} очков`
-          : "Карты скрыты";
+      document.getElementById(
+        "opponentScore"
+      ).textContent = finished
+        ? `${state.opponent_points} очков`
+        : "Карты скрыты";
 
-      document.getElementById("opponentStatus").textContent =
-        finished
-          ? "Карты соперника открыты"
-          : state.opponent_finished
-            ? "Соперник закончил ход"
-            : "Карты откроются в конце раунда";
+      document.getElementById(
+        "opponentStatus"
+      ).textContent = finished
+        ? "Карты соперника открыты"
+        : state.opponent_finished
+          ? "Соперник закончил ход"
+          : "Карты откроются в конце раунда";
 
-      document.getElementById("actions").classList.toggle(
+      document.getElementById(
+        "actions"
+      ).classList.toggle(
         "hidden",
         finished || state.my_finished
       );
 
-      document.getElementById("again").classList.toggle(
+      document.getElementById(
+        "again"
+      ).classList.toggle(
         "hidden",
         !finished
       );
 
-      const result = document.getElementById("result");
-      result.classList.toggle("hidden", !finished);
+      const result =
+        document.getElementById("result");
+
+      result.classList.toggle(
+        "hidden",
+        !finished
+      );
 
       if (finished) {
         result.textContent =
@@ -662,29 +797,77 @@
               ? `Поражение. −${state.stake} 🪙`
               : "Ничья — ставка возвращена 🤝";
 
-        message.textContent = "Раунд завершён";
+        message.textContent =
+          "Раунд завершён";
       } else if (state.my_finished) {
-        message.textContent = "Ждём ход соперника…";
+        message.textContent =
+          "Ждём ход соперника…";
       } else {
         message.textContent =
           "Возьми карту или закончи ход.";
+      }
+
+      const offer = state.raise_offer;
+
+      document.getElementById(
+        "raisePanel"
+      ).classList.toggle(
+        "hidden",
+        finished || Boolean(offer)
+      );
+
+      document.getElementById(
+        "offerPanel"
+      ).classList.toggle(
+        "hidden",
+        finished || !offer
+      );
+
+      if (offer && !finished) {
+        document.getElementById(
+          "offerText"
+        ).textContent = offer.from_me
+          ? `Ты предложил добавить по `
+            + `${offer.amount} 🪙. `
+            + `Ждём ответа соперника.`
+          : `Соперник предлагает добавить `
+            + `по ${offer.amount} 🪙. `
+            + `Согласен?`;
+
+        document.getElementById(
+          "offerActions"
+        ).classList.toggle(
+          "hidden",
+          offer.from_me
+        );
+
+        document.getElementById(
+          "acceptButton"
+        ).disabled =
+          busy || currentBalance < offer.amount;
       }
     }
 
     function showError(error) {
       message.classList.add("error");
-      message.textContent = error.message;
+      message.textContent =
+        error.message;
     }
 
     async function searchGame() {
-      if (busy) return;
+      if (busy) {
+        return;
+      }
 
       setBusy(true);
 
       try {
-        render(await request("/api/search", {
-          stake: selectedStake
-        }));
+        render(
+          await request(
+            "/api/search",
+            { stake: selectedStake }
+          )
+        );
       } catch (error) {
         showError(error);
         alert(error.message);
@@ -694,30 +877,76 @@
     }
 
     async function cancelSearch() {
-      if (busy) return;
+      if (busy) {
+        return;
+      }
 
       setBusy(true);
 
       try {
-        render(await request("/api/cancel"));
+        render(
+          await request("/api/cancel")
+        );
       } catch (error) {
         showError(error);
+        alert(error.message);
       } finally {
         setBusy(false);
       }
     }
 
     async function play(action) {
-      if (busy) return;
+      if (busy) {
+        return;
+      }
 
       setBusy(true);
 
       try {
-        render(await request("/api/play", {
-          action
-        }));
+        render(
+          await request(
+            "/api/play",
+            { action }
+          )
+        );
       } catch (error) {
         showError(error);
+        alert(error.message);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function raiseAction(
+      action,
+      amount = 0
+    ) {
+      if (busy) {
+        return;
+      }
+
+      setBusy(true);
+
+      try {
+        render(
+          await request(
+            "/api/raise",
+            { action, amount }
+          )
+        );
+      } catch (error) {
+        showError(error);
+        alert(error.message);
+
+        // Например, другой игрок успел закончить
+        // раунд до нажатия «Принять».
+        try {
+          render(
+            await request("/api/state")
+          );
+        } catch (_) {
+          // Исходная ошибка уже показана.
+        }
       } finally {
         setBusy(false);
       }
@@ -734,21 +963,30 @@
       tg.ready();
 
       try {
-        const player = await request("/api/login");
+        const player =
+          await request("/api/login");
+
         updateBalance(player.balance);
-        render(await request("/api/state"));
+
+        render(
+          await request("/api/state")
+        );
       } catch (error) {
         showError(error);
         return;
       }
 
       setInterval(async () => {
-        if (busy) return;
+        if (busy) {
+          return;
+        }
 
         busy = true;
 
         try {
-          render(await request("/api/state"));
+          render(
+            await request("/api/state")
+          );
         } catch (error) {
           showError(error);
         } finally {
@@ -757,7 +995,11 @@
       }, 2000);
     }
 
-    setInterval(updateTimerDisplay, 200);
+    setInterval(
+      updateTimerDisplay,
+      200
+    );
+
     start();
   </script>
 </body>
