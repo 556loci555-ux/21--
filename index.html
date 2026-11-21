@@ -5,10 +5,39 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <title>Игра 21</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 32px 20px;
+      background: #141414;
+      color: #ffffff;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+
+    h1 {
+      margin-top: 48px;
+      font-size: 32px;
+    }
+
+    #status {
+      margin-top: 24px;
+      font-size: 18px;
+      line-height: 1.5;
+      color: #ffffff;
+    }
+  </style>
 </head>
+
 <body>
   <h1>Игра «21» 🃏</h1>
-  <p id="status">Входим через Telegram…</p>
+  <p id="status">Загружаем профиль…</p>
 
   <script>
     async function start() {
@@ -16,7 +45,7 @@
       const tg = window.Telegram?.WebApp;
 
       if (!tg?.initData) {
-        status.textContent = "Открой игру через кнопку в Telegram-боте.";
+        status.textContent = "Открой игру через кнопку Telegram-бота.";
         return;
       }
 
@@ -29,12 +58,14 @@
           body: JSON.stringify({ init_data: tg.initData })
         });
 
-        if (!response.ok) throw new Error("Сервер отклонил вход");
+        if (!response.ok) {
+          throw new Error(`Ошибка входа: ${response.status}`);
+        }
 
         const player = await response.json();
         status.textContent = `Привет, ${player.first_name}! Вход выполнен.`;
       } catch (error) {
-        status.textContent = `Ошибка: ${error.message}`;
+        status.textContent = error.message;
       }
     }
 
