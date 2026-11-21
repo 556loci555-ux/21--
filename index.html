@@ -130,8 +130,7 @@
       font-size: 18px;
     }
 
-    .score,
-    .stake-label {
+    .score {
       padding: 7px 10px;
       border-radius: 999px;
       background: rgba(242, 198, 109, .14);
@@ -168,7 +167,8 @@
       opacity: .45;
     }
 
-    button.secondary {
+    button.secondary,
+    .stake-button {
       border: 1px solid var(--border);
       background: rgba(255, 255, 255, .10);
       color: var(--text);
@@ -178,12 +178,6 @@
       display: block;
       width: 100%;
       margin-top: 12px;
-    }
-
-    .stake-button {
-      border: 1px solid var(--border);
-      background: rgba(255, 255, 255, .10);
-      color: white;
     }
 
     .stake-button.selected {
@@ -233,3 +227,538 @@
         #184579 6px,
         #184579 12px
       );
+      color: white;
+      font-size: 33px;
+    }
+
+    .caption {
+      margin-top: 14px;
+      text-align: center;
+      font-size: 14px;
+    }
+
+    .countdown {
+      margin: 22px 0;
+      color: var(--gold);
+      font-size: 64px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .countdown-unit {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 16px;
+      font-weight: 500;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .result {
+      margin: 10px 0 18px;
+      color: var(--gold);
+      text-align: center;
+      font-size: 23px;
+      font-weight: 900;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <header>
+      <div class="brand">ИГРА <span>21</span> 🃏</div>
+      <div id="balance" class="balance">🪙 —</div>
+    </header>
+
+    <p id="message" class="message">
+      Входим через Telegram…
+    </p>
+
+    <section id="menu" class="hidden">
+      <div class="hero">
+        <div class="hero-icon">♠️</div>
+        <h1>Двадцать одно</h1>
+        <p>
+          Выбери ставку и сыграй онлайн.<br>
+          Если соперник не найдётся, сыграешь с ботом.
+        </p>
+      </div>
+
+      <div class="stake-title">Выбери ставку 🪙</div>
+
+      <div class="stake-buttons">
+        <button
+          class="stake-button selected"
+          data-stake="10"
+          onclick="selectStake(10)"
+        >10</button>
+
+        <button
+          class="stake-button"
+          data-stake="20"
+          onclick="selectStake(20)"
+        >20</button>
+
+        <button
+          class="stake-button"
+          data-stake="50"
+          onclick="selectStake(50)"
+        >50</button>
+      </div>
+
+      <button
+        id="searchButton"
+        class="wide"
+        onclick="searchGame()"
+      >
+        Играть онлайн
+      </button>
+    </section>
+
+    <section id="waiting" class="hidden">
+      <div class="hero">
+        <div class="hero-icon">🔎</div>
+        <h1>Ищем соперника</h1>
+
+        <p>Ставка: <span id="waitingStake">10</span> 🪙</p>
+        <p>До игры с ботом осталось:</p>
+
+        <div class="countdown">
+          <span id="timerNumber">21</span>
+          <div class="countdown-unit">секунд</div>
+        </div>
+
+        <p>Если игрок найдётся раньше, партия начнётся сразу.</p>
+      </div>
+
+      <button
+        id="cancelButton"
+        class="wide secondary"
+        onclick="cancelSearch()"
+      >
+        Отменить поиск
+      </button>
+    </section>
+
+    <section id="game" class="hidden">
+      <div class="panel">
+        <div class="panel-title">
+          <h2 id="opponent">Соперник</h2>
+          <span id="opponentScore" class="score">
+            Карты скрыты
+          </span>
+        </div>
+
+        <div id="opponentCards" class="cards"></div>
+
+        <div id="opponentStatus" class="caption">
+          Карты откроются в конце раунда
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">
+          <h2>Твои карты</h2>
+          <span id="myPoints" class="score">0 очков</span>
+        </div>
+
+        <div id="myCards" class="cards"></div>
+        <div id="gameStake" class="caption"></div>
+      </div>
+
+      <div id="result" class="result hidden"></div>
+
+      <div id="actions" class="actions">
+        <button id="drawButton" onclick="play('draw')">
+          ＋ Ещё карту
+        </button>
+
+        <button
+          id="standButton"
+          class="secondary"
+          onclick="play('stand')"
+        >
+          Хватит
+        </button>
+      </div>
+
+      <button
+        id="again"
+        class="wide hidden"
+        onclick="searchGame()"
+      >
+        Играть ещё
+      </button>
+    </section>
+  </div>
+
+  <script>
+    const tg = window.Telegram?.WebApp;
+    const message = document.getElementById("message");
+
+    let selectedStake = 10;
+    let currentBalance = 0;
+    let busy = false;
+
+    let timerSeconds = null;
+    let timerUpdatedAt = 0;
+
+    function show(section) {
+      for (const id of ["menu", "waiting", "game"]) {
+        document.getElementById(id).classList.toggle(
+          "hidden",
+          id !== section
+        );
+      }
+    }
+
+    function updateBalance(value) {
+      currentBalance = value;
+
+      document.getElementById("balance").textContent =
+        `🪙 ${value}`;
+
+      for (const button of document.querySelectorAll(
+        ".stake-button"
+      )) {
+        button.disabled =
+          busy || Number(button.dataset.stake) > value;
+      }
+
+      document.getElementById("searchButton").disabled =
+        busy || selectedStake > value;
+    }
+
+    function selectStake(stake) {
+      selectedStake = stake;
+
+      for (const button of document.querySelectorAll(
+        ".stake-button"
+      )) {
+        button.classList.toggle(
+          "selected",
+          Number(button.dataset.stake) === stake
+        );
+      }
+
+      updateBalance(currentBalance);
+    }
+
+    function setBusy(value) {
+      busy = value;
+
+      for (const id of [
+        "cancelButton",
+        "drawButton",
+        "standButton",
+        "again"
+      ]) {
+        document.getElementById(id).disabled = value;
+      }
+
+      updateBalance(currentBalance);
+    }
+
+    async function request(path, extra = {}) {
+      const response = await fetch(path, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          init_data: tg.initData,
+          ...extra
+        })
+      });
+
+      if (!response.ok) {
+        let detail = `Ошибка сервера: ${response.status}`;
+
+        try {
+          const data = await response.json();
+
+          if (typeof data.detail === "string") {
+            detail = data.detail;
+          } else if (Array.isArray(data.detail)) {
+            detail = data.detail.map(item => {
+              const field = Array.isArray(item.loc)
+                ? item.loc.join(" → ")
+                : "запрос";
+
+              return `${field}: ${item.msg}`;
+            }).join("; ");
+          }
+        } catch (_) {
+          // Если ответ не JSON, покажем номер ошибки.
+        }
+
+        throw new Error(
+          response.status === 422
+            ? `Ошибка 422: ${detail}`
+            : detail
+        );
+      }
+
+      return response.json();
+    }
+
+    function makeCard(label) {
+      const card = document.createElement("div");
+      card.className = "card";
+
+      const suit = label.slice(-1);
+      const rank = label.slice(0, -1);
+
+      if (suit === "♥" || suit === "♦") {
+        card.classList.add("red");
+      }
+
+      const rankElement = document.createElement("span");
+      rankElement.textContent = rank;
+
+      const suitElement = document.createElement("small");
+      suitElement.textContent = suit;
+
+      card.append(rankElement, suitElement);
+
+      return card;
+    }
+
+    function displayCards(id, labels, hidden = false) {
+      const container = document.getElementById(id);
+      container.replaceChildren();
+
+      if (hidden) {
+        for (let i = 0; i < 2; i++) {
+          const back = document.createElement("div");
+          back.className = "card back";
+          back.textContent = "✦";
+          container.appendChild(back);
+        }
+
+        return;
+      }
+
+      for (const label of labels) {
+        container.appendChild(makeCard(label));
+      }
+    }
+
+    function updateTimerDisplay() {
+      if (timerSeconds === null) return;
+
+      const elapsed = Math.floor(
+        (Date.now() - timerUpdatedAt) / 1000
+      );
+
+      const seconds = Math.max(
+        0,
+        timerSeconds - elapsed
+      );
+
+      document.getElementById("timerNumber").textContent =
+        seconds;
+    }
+
+    function render(state) {
+      message.classList.remove("error");
+
+      if (typeof state.balance === "number") {
+        updateBalance(state.balance);
+      }
+
+      if (state.status === "idle") {
+        timerSeconds = null;
+        message.textContent =
+          "Набери 21 очко и обыграй соперника.";
+        show("menu");
+        return;
+      }
+
+      if (state.status === "waiting") {
+        message.textContent = "Подбираем игрока…";
+
+        document.getElementById("waitingStake").textContent =
+          state.stake;
+
+        timerSeconds = state.seconds_left;
+        timerUpdatedAt = Date.now();
+
+        updateTimerDisplay();
+        show("waiting");
+        return;
+      }
+
+      if (
+        state.status !== "playing" &&
+        state.status !== "result"
+      ) {
+        return;
+      }
+
+      timerSeconds = null;
+
+      const finished = state.status === "result";
+      show("game");
+
+      document.getElementById("opponent").textContent =
+        state.is_bot
+          ? "Бот 🤖"
+          : `Соперник: ${state.opponent_name}`;
+
+      document.getElementById("myPoints").textContent =
+        `${state.my_points} очков`;
+
+      document.getElementById("gameStake").textContent =
+        `Ставка: ${state.stake} 🪙`;
+
+      displayCards("myCards", state.my_cards);
+
+      displayCards(
+        "opponentCards",
+        finished ? state.opponent_cards : [],
+        !finished
+      );
+
+      document.getElementById("opponentScore").textContent =
+        finished
+          ? `${state.opponent_points} очков`
+          : "Карты скрыты";
+
+      document.getElementById("opponentStatus").textContent =
+        finished
+          ? "Карты соперника открыты"
+          : state.opponent_finished
+            ? "Соперник закончил ход"
+            : "Карты откроются в конце раунда";
+
+      document.getElementById("actions").classList.toggle(
+        "hidden",
+        finished || state.my_finished
+      );
+
+      document.getElementById("again").classList.toggle(
+        "hidden",
+        !finished
+      );
+
+      const result = document.getElementById("result");
+      result.classList.toggle("hidden", !finished);
+
+      if (finished) {
+        result.textContent =
+          state.winner === "me"
+            ? `Победа! +${state.stake} 🪙 🏆`
+            : state.winner === "opponent"
+              ? `Поражение. −${state.stake} 🪙`
+              : "Ничья — ставка возвращена 🤝";
+
+        message.textContent = "Раунд завершён";
+      } else if (state.my_finished) {
+        message.textContent = "Ждём ход соперника…";
+      } else {
+        message.textContent =
+          "Возьми карту или закончи ход.";
+      }
+    }
+
+    function showError(error) {
+      message.classList.add("error");
+      message.textContent = error.message;
+    }
+
+    async function searchGame() {
+      if (busy) return;
+
+      setBusy(true);
+
+      try {
+        render(await request("/api/search", {
+          stake: selectedStake
+        }));
+      } catch (error) {
+        showError(error);
+        alert(error.message);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function cancelSearch() {
+      if (busy) return;
+
+      setBusy(true);
+
+      try {
+        render(await request("/api/cancel"));
+      } catch (error) {
+        showError(error);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function play(action) {
+      if (busy) return;
+
+      setBusy(true);
+
+      try {
+        render(await request("/api/play", {
+          action
+        }));
+      } catch (error) {
+        showError(error);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function start() {
+      if (!tg?.initData) {
+        showError(new Error(
+          "Открой игру через кнопку Telegram-бота."
+        ));
+        return;
+      }
+
+      tg.ready();
+
+      try {
+        const player = await request("/api/login");
+        updateBalance(player.balance);
+        render(await request("/api/state"));
+      } catch (error) {
+        showError(error);
+        return;
+      }
+
+      setInterval(async () => {
+        if (busy) return;
+
+        busy = true;
+
+        try {
+          render(await request("/api/state"));
+        } catch (error) {
+          showError(error);
+        } finally {
+          busy = false;
+        }
+      }, 2000);
+    }
+
+    setInterval(updateTimerDisplay, 200);
+    start();
+  </script>
+</body>
+</html>
