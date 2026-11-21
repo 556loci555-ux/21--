@@ -7,102 +7,310 @@
   <title>Игра 21</title>
 
   <style>
+    :root {
+      --background: #091b16;
+      --table: #103b2b;
+      --panel: #174633;
+      --border: rgba(255, 255, 255, .13);
+      --text: #f5f5ed;
+      --muted: #b7c9bd;
+      --gold: #f2c66d;
+      --green: #35b875;
+      --red: #dc5353;
+    }
+
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
       min-height: 100vh;
-      padding: 32px 18px;
-      background: #141414;
-      color: white;
-      font-family: Arial, sans-serif;
+      min-height: 100dvh;
+      padding:
+        20px
+        16px
+        calc(28px + env(safe-area-inset-bottom));
+      background:
+        radial-gradient(circle at 50% 35%, #1b563d 0%, var(--table) 48%, var(--background) 100%);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 22px;
+    }
+
+    .brand {
+      font-size: 23px;
+      font-weight: 900;
+      letter-spacing: .3px;
+    }
+
+    .brand span { color: var(--gold); }
+
+    .badge {
+      padding: 8px 11px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, .06);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .message {
+      min-height: 48px;
+      margin: 0 0 20px;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    .message.error { color: #ffabab; }
+
+    .hero {
+      padding: 44px 22px;
+      border: 1px solid var(--border);
+      border-radius: 26px;
+      background: rgba(255, 255, 255, .06);
+      text-align: center;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, .15);
+    }
+
+    .hero-icon { font-size: 56px; }
+
+    .hero h1 {
+      margin: 12px 0;
+      color: var(--gold);
+      font-size: 38px;
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .panel {
+      margin-bottom: 16px;
+      padding: 20px 16px;
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      background: rgba(12, 42, 30, .73);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, .12);
+    }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 17px;
+    }
+
+    .panel-title h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .score {
+      padding: 7px 11px;
+      border-radius: 999px;
+      background: rgba(242, 198, 109, .14);
+      color: var(--gold);
+      font-size: 14px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .cards {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      min-height: 106px;
+    }
+
+    .card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 66px;
+      height: 96px;
+      border-radius: 10px;
+      background: #fffdf7;
+      color: #1e2420;
+      box-shadow: 0 5px 12px rgba(0, 0, 0, .25);
+      font-size: 28px;
+      font-weight: 800;
+    }
+
+    .card.red { color: var(--red); }
+
+    .card small {
+      font-size: 27px;
+      line-height: 1;
+    }
+
+    .card.back {
+      border: 4px solid #f1eadb;
+      background:
+        repeating-linear-gradient(
+          45deg,
+          #235694 0,
+          #235694 6px,
+          #184579 6px,
+          #184579 12px
+        );
+      color: #fff;
+      font-size: 33px;
+    }
+
+    .caption {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 14px;
       text-align: center;
     }
 
-    h1 { margin: 32px 0 12px; }
-    #message { line-height: 1.5; }
+    .waiting-icon {
+      margin-bottom: 12px;
+      font-size: 48px;
+    }
+
+    .timer {
+      margin: 16px 0;
+      color: var(--gold);
+      font-size: 54px;
+      font-weight: 900;
+    }
 
     button {
       display: block;
       width: 100%;
-      max-width: 320px;
-      margin: 14px auto;
-      padding: 16px;
+      min-height: 56px;
+      margin-top: 12px;
+      padding: 13px 16px;
       border: 0;
-      border-radius: 12px;
-      background: #32a76b;
-      color: white;
+      border-radius: 15px;
+      background: var(--green);
+      color: #062015;
       font-size: 17px;
-      font-weight: bold;
+      font-weight: 800;
+      cursor: pointer;
     }
 
-    button.secondary { background: #414141; }
+    button.secondary {
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, .10);
+      color: var(--text);
+    }
 
     button:disabled {
-      opacity: 0.5;
+      opacity: .55;
+      cursor: default;
     }
 
-    .cards {
-      margin: 18px 0 30px;
-      font-size: 28px;
-      line-height: 1.6;
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
     }
 
-    .panel {
-      margin: 28px auto;
-      max-width: 380px;
-      padding: 20px;
-      border-radius: 16px;
-      background: #242424;
+    .actions button { margin-top: 0; }
+
+    .result {
+      margin: 4px 0 18px;
+      color: var(--gold);
+      font-size: 22px;
+      font-weight: 800;
+      text-align: center;
     }
 
-    .hidden { display: none; }
-    .error { color: #ff9292; }
+    .hidden { display: none !important; }
   </style>
 </head>
 
 <body>
-  <h1>Игра «21» 🃏</h1>
-  <p id="message">Входим через Telegram…</p>
+  <div class="app">
+    <header>
+      <div class="brand">ИГРА <span>21</span> 🃏</div>
+      <div class="badge">ОЧКО · ОНЛАЙН</div>
+    </header>
 
-  <div id="menu" class="hidden">
-    <button onclick="searchGame()">Играть онлайн</button>
-  </div>
+    <p id="message" class="message">Входим через Telegram…</p>
 
-  <div id="waiting" class="hidden">
-    <div class="panel">
-      <p>Ищем соперника…</p>
-      <p>Если никого не найдём, через <b id="timer">30</b> сек. начнётся игра с ботом.</p>
-    </div>
-    <button class="secondary" onclick="cancelSearch()">Отменить поиск</button>
-  </div>
+    <section id="menu" class="hidden">
+      <div class="hero">
+        <div class="hero-icon">♠️</div>
+        <h1>Двадцать одно</h1>
+        <p>
+          Сыграй с другим игроком.<br>
+          Если соперника нет — через 30 секунд начнётся игра с ботом.
+        </p>
+      </div>
+      <button id="searchButton" onclick="searchGame()">Играть онлайн</button>
+    </section>
 
-  <div id="game" class="hidden">
-    <div class="panel">
-      <h2 id="opponent">Соперник</h2>
-      <div id="opponentCards" class="cards">🂠 🂠</div>
-      <div id="opponentStatus">Карты скрыты до конца раунда</div>
-    </div>
+    <section id="waiting" class="hidden">
+      <div class="hero">
+        <div class="waiting-icon">🔎</div>
+        <h1 style="font-size: 26px;">Ищем соперника</h1>
+        <p>Если игрок не найдётся, сыграешь с ботом через:</p>
+        <div class="timer"><span id="timer">30</span> с</div>
+      </div>
+      <button id="cancelButton" class="secondary" onclick="cancelSearch()">
+        Отменить поиск
+      </button>
+    </section>
 
-    <div class="panel">
-      <h2>Твои карты</h2>
-      <div id="myCards" class="cards"></div>
-      <div id="myPoints"></div>
-    </div>
+    <section id="game" class="hidden">
+      <div class="panel">
+        <div class="panel-title">
+          <h2 id="opponent">Соперник</h2>
+          <span id="opponentScore" class="score">Карты скрыты</span>
+        </div>
+        <div id="opponentCards" class="cards"></div>
+        <div id="opponentStatus" class="caption">
+          Карты откроются в конце раунда
+        </div>
+      </div>
 
-    <div id="actions">
-      <button onclick="play('draw')">Ещё карту</button>
-      <button class="secondary" onclick="play('stand')">Хватит</button>
-    </div>
+      <div class="panel">
+        <div class="panel-title">
+          <h2>Твои карты</h2>
+          <span id="myPoints" class="score">0 очков</span>
+        </div>
+        <div id="myCards" class="cards"></div>
+      </div>
 
-    <button id="again" class="hidden" onclick="searchGame()">
-      Играть ещё
-    </button>
+      <div id="result" class="result hidden"></div>
+
+      <div id="actions" class="actions">
+        <button id="drawButton" onclick="play('draw')">＋ Ещё карту</button>
+        <button id="standButton" class="secondary" onclick="play('stand')">
+          Хватит
+        </button>
+      </div>
+
+      <button id="again" class="hidden" onclick="searchGame()">
+        Играть ещё
+      </button>
+    </section>
   </div>
 
   <script>
     const tg = window.Telegram?.WebApp;
     const message = document.getElementById("message");
+    let busy = false;
 
     function show(section) {
       for (const id of ["menu", "waiting", "game"]) {
@@ -110,6 +318,20 @@
           "hidden",
           id !== section
         );
+      }
+    }
+
+    function setBusy(value) {
+      busy = value;
+
+      for (const id of [
+        "searchButton",
+        "cancelButton",
+        "drawButton",
+        "standButton",
+        "again"
+      ]) {
+        document.getElementById(id).disabled = value;
       }
     }
 
@@ -137,9 +359,51 @@
       return response.json();
     }
 
+    function makeCard(label) {
+      const card = document.createElement("div");
+      card.className = "card";
+
+      const suit = label.slice(-1);
+      const rank = label.slice(0, -1);
+
+      if (suit === "♥" || suit === "♦") {
+        card.classList.add("red");
+      }
+
+      const rankElement = document.createElement("span");
+      rankElement.textContent = rank;
+
+      const suitElement = document.createElement("small");
+      suitElement.textContent = suit;
+
+      card.append(rankElement, suitElement);
+      return card;
+    }
+
+    function displayCards(containerId, labels, hidden = false) {
+      const container = document.getElementById(containerId);
+      container.replaceChildren();
+
+      if (hidden) {
+        for (let i = 0; i < 2; i++) {
+          const back = document.createElement("div");
+          back.className = "card back";
+          back.textContent = "✦";
+          container.appendChild(back);
+        }
+        return;
+      }
+
+      for (const label of labels) {
+        container.appendChild(makeCard(label));
+      }
+    }
+
     function render(state) {
+      message.classList.remove("error");
+
       if (state.status === "idle") {
-        message.textContent = "Выбери режим игры.";
+        message.textContent = "Набери 21 очко и обыграй соперника.";
         show("menu");
         return;
       }
@@ -156,30 +420,35 @@
         return;
       }
 
+      const finished = state.status === "result";
       show("game");
 
       document.getElementById("opponent").textContent =
         state.is_bot
-          ? "Соперник: бот 🤖"
+          ? "Бот 🤖"
           : `Соперник: ${state.opponent_name}`;
 
-      document.getElementById("myCards").textContent =
-        state.my_cards.join("  ");
-
       document.getElementById("myPoints").textContent =
-        `Очки: ${state.my_points}`;
+        `${state.my_points} очков`;
 
-      const finished = state.status === "result";
+      displayCards("myCards", state.my_cards);
+      displayCards(
+        "opponentCards",
+        finished ? state.opponent_cards : [],
+        !finished
+      );
 
-      document.getElementById("opponentCards").textContent =
-        finished ? state.opponent_cards.join("  ") : "🂠 🂠";
+      document.getElementById("opponentScore").textContent =
+        finished
+          ? `${state.opponent_points} очков`
+          : "Карты скрыты";
 
       document.getElementById("opponentStatus").textContent =
         finished
-          ? `Очки соперника: ${state.opponent_points}`
+          ? "Карты соперника открыты"
           : state.opponent_finished
             ? "Соперник закончил ход"
-            : "Карты скрыты до конца раунда";
+            : "Карты откроются в конце раунда";
 
       document.getElementById("actions").classList.toggle(
         "hidden",
@@ -191,43 +460,20 @@
         !finished
       );
 
+      const result = document.getElementById("result");
+      result.classList.toggle("hidden", !finished);
+
       if (finished) {
-        message.textContent =
-          state.winner === "me" ? "Ты победил! 🎉" :
-          state.winner === "opponent" ? "Победил соперник." :
-          "Ничья!";
+        result.textContent =
+          state.winner === "me" ? "Победа! 🏆" :
+          state.winner === "opponent" ? "Победил соперник" :
+          "Ничья 🤝";
+
+        message.textContent = "Раунд завершён";
       } else if (state.my_finished) {
-        message.textContent = "Ждём, пока соперник закончит ход…";
+        message.textContent = "Ждём ход соперника…";
       } else {
         message.textContent = "Возьми карту или закончи ход.";
-      }
-    }
-
-    async function searchGame() {
-      try {
-        message.classList.remove("error");
-        message.textContent = "Ищем соперника…";
-        show("waiting");
-        render(await request("/api/search"));
-      } catch (error) {
-        show("menu");
-        showError(error);
-      }
-    }
-
-    async function cancelSearch() {
-      try {
-        render(await request("/api/cancel"));
-      } catch (error) {
-        showError(error);
-      }
-    }
-
-    async function play(action) {
-      try {
-        render(await request("/api/play", { action }));
-      } catch (error) {
-        showError(error);
       }
     }
 
@@ -236,10 +482,51 @@
       message.textContent = error.message;
     }
 
+    async function searchGame() {
+      if (busy) return;
+      setBusy(true);
+
+      try {
+        show("waiting");
+        render(await request("/api/search"));
+      } catch (error) {
+        show("menu");
+        showError(error);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function cancelSearch() {
+      if (busy) return;
+      setBusy(true);
+
+      try {
+        render(await request("/api/cancel"));
+      } catch (error) {
+        showError(error);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function play(action) {
+      if (busy) return;
+      setBusy(true);
+
+      try {
+        render(await request("/api/play", { action }));
+      } catch (error) {
+        showError(error);
+      } finally {
+        setBusy(false);
+      }
+    }
+
     async function start() {
       if (!tg?.initData) {
         showError(new Error(
-          "Открой игру через кнопку своего Telegram-бота."
+          "Открой игру через кнопку Telegram-бота."
         ));
         return;
       }
@@ -247,19 +534,18 @@
       tg.ready();
 
       try {
-        const player = await request("/api/login");
-        message.textContent = `Привет, ${player.first_name}!`;
+        await request("/api/login");
         render(await request("/api/state"));
       } catch (error) {
         showError(error);
         return;
       }
 
-      // Обновляем поиск и состояние онлайн-партии.
       setInterval(async () => {
+        if (busy) return;
+
         try {
-          const state = await request("/api/state");
-          render(state);
+          render(await request("/api/state"));
         } catch (error) {
           showError(error);
         }
