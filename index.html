@@ -10,7 +10,6 @@
     :root {
       --background: #091b16;
       --table: #103b2b;
-      --panel: #174633;
       --border: rgba(255, 255, 255, .13);
       --text: #f5f5ed;
       --muted: #b7c9bd;
@@ -23,14 +22,14 @@
 
     body {
       margin: 0;
-      min-height: 100vh;
       min-height: 100dvh;
-      padding:
-        20px
-        16px
-        calc(28px + env(safe-area-inset-bottom));
-      background:
-        radial-gradient(circle at 50% 35%, #1b563d 0%, var(--table) 48%, var(--background) 100%);
+      padding: 20px 16px calc(28px + env(safe-area-inset-bottom));
+      background: radial-gradient(
+        circle at 50% 35%,
+        #1b563d 0%,
+        var(--table) 48%,
+        var(--background) 100%
+      );
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif;
     }
@@ -43,75 +42,70 @@
 
     header {
       display: flex;
-      align-items: center;
       justify-content: space-between;
+      align-items: center;
+      gap: 12px;
       margin-bottom: 22px;
     }
 
     .brand {
       font-size: 23px;
       font-weight: 900;
-      letter-spacing: .3px;
     }
 
     .brand span { color: var(--gold); }
 
-    .badge {
-      padding: 8px 11px;
+    .balance {
+      padding: 9px 12px;
       border: 1px solid var(--border);
       border-radius: 999px;
-      background: rgba(255, 255, 255, .06);
-      color: var(--muted);
-      font-size: 12px;
+      background: rgba(255, 255, 255, .08);
+      color: var(--gold);
+      font-size: 14px;
+      font-weight: 800;
+      white-space: nowrap;
     }
 
     .message {
-      min-height: 48px;
-      margin: 0 0 20px;
+      min-height: 42px;
+      margin: 0 0 18px;
       color: var(--muted);
-      text-align: center;
       line-height: 1.5;
+      text-align: center;
     }
 
     .message.error { color: #ffabab; }
 
-    .hero {
-      padding: 44px 22px;
+    .hero, .panel {
+      padding: 24px 18px;
       border: 1px solid var(--border);
-      border-radius: 26px;
-      background: rgba(255, 255, 255, .06);
-      text-align: center;
-      box-shadow: 0 16px 40px rgba(0, 0, 0, .15);
+      border-radius: 24px;
+      background: rgba(12, 42, 30, .76);
+      box-shadow: 0 14px 35px rgba(0, 0, 0, .15);
     }
 
-    .hero-icon { font-size: 56px; }
+    .hero { text-align: center; }
+
+    .hero-icon { font-size: 50px; }
 
     .hero h1 {
       margin: 12px 0;
       color: var(--gold);
-      font-size: 38px;
+      font-size: 32px;
     }
 
-    .hero p {
-      margin: 0;
+    .hero p, .caption {
       color: var(--muted);
       line-height: 1.5;
     }
 
-    .panel {
-      margin-bottom: 16px;
-      padding: 20px 16px;
-      border: 1px solid var(--border);
-      border-radius: 22px;
-      background: rgba(12, 42, 30, .73);
-      box-shadow: 0 12px 30px rgba(0, 0, 0, .12);
-    }
+    .panel { margin-bottom: 16px; }
 
     .panel-title {
       display: flex;
-      align-items: center;
       justify-content: space-between;
-      gap: 10px;
+      align-items: center;
+      gap: 8px;
       margin-bottom: 17px;
     }
 
@@ -120,14 +114,63 @@
       font-size: 18px;
     }
 
-    .score {
-      padding: 7px 11px;
+    .score, .stake-label {
+      padding: 7px 10px;
       border-radius: 999px;
       background: rgba(242, 198, 109, .14);
       color: var(--gold);
-      font-size: 14px;
-      font-weight: 700;
-      white-space: nowrap;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .stake-title {
+      margin: 26px 0 12px;
+      text-align: center;
+      font-weight: 800;
+    }
+
+    .stake-buttons {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 9px;
+    }
+
+    button {
+      min-height: 54px;
+      padding: 12px;
+      border: 0;
+      border-radius: 14px;
+      background: var(--green);
+      color: #062015;
+      font-size: 17px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    button:disabled { opacity: .45; }
+
+    button.secondary {
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, .10);
+      color: var(--text);
+    }
+
+    .wide {
+      display: block;
+      width: 100%;
+      margin-top: 12px;
+    }
+
+    .stake-button {
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, .10);
+      color: white;
+    }
+
+    .stake-button.selected {
+      border-color: var(--gold);
+      background: var(--gold);
+      color: #231b0c;
     }
 
     .cards {
@@ -162,61 +205,31 @@
 
     .card.back {
       border: 4px solid #f1eadb;
-      background:
-        repeating-linear-gradient(
-          45deg,
-          #235694 0,
-          #235694 6px,
-          #184579 6px,
-          #184579 12px
-        );
-      color: #fff;
+      background: repeating-linear-gradient(
+        45deg,
+        #235694 0,
+        #235694 6px,
+        #184579 6px,
+        #184579 12px
+      );
+      color: white;
       font-size: 33px;
     }
 
     .caption {
       margin-top: 14px;
-      color: var(--muted);
-      font-size: 14px;
       text-align: center;
+      font-size: 14px;
     }
 
-    .waiting-icon {
-      margin-bottom: 12px;
-      font-size: 48px;
+    .timer-cards {
+      margin: 22px 0 12px;
     }
 
-    .timer {
-      margin: 16px 0;
+    .timer-note {
+      min-height: 25px;
       color: var(--gold);
-      font-size: 54px;
-      font-weight: 900;
-    }
-
-    button {
-      display: block;
-      width: 100%;
-      min-height: 56px;
-      margin-top: 12px;
-      padding: 13px 16px;
-      border: 0;
-      border-radius: 15px;
-      background: var(--green);
-      color: #062015;
-      font-size: 17px;
       font-weight: 800;
-      cursor: pointer;
-    }
-
-    button.secondary {
-      border: 1px solid var(--border);
-      background: rgba(255, 255, 255, .10);
-      color: var(--text);
-    }
-
-    button:disabled {
-      opacity: .55;
-      cursor: default;
     }
 
     .actions {
@@ -225,14 +238,12 @@
       gap: 10px;
     }
 
-    .actions button { margin-top: 0; }
-
     .result {
-      margin: 4px 0 18px;
+      margin: 10px 0 18px;
       color: var(--gold);
-      font-size: 22px;
-      font-weight: 800;
       text-align: center;
+      font-size: 23px;
+      font-weight: 900;
     }
 
     .hidden { display: none !important; }
@@ -243,7 +254,7 @@
   <div class="app">
     <header>
       <div class="brand">ИГРА <span>21</span> 🃏</div>
-      <div class="badge">ОЧКО · ОНЛАЙН</div>
+      <div id="balance" class="balance">🪙 —</div>
     </header>
 
     <p id="message" class="message">Входим через Telegram…</p>
@@ -253,21 +264,41 @@
         <div class="hero-icon">♠️</div>
         <h1>Двадцать одно</h1>
         <p>
-          Сыграй с другим игроком.<br>
-          Если соперника нет — через 30 секунд начнётся игра с ботом.
+          Выбери ставку и сыграй онлайн.<br>
+          Если соперник не найдётся, сыграешь с ботом.
         </p>
       </div>
-      <button id="searchButton" onclick="searchGame()">Играть онлайн</button>
+
+      <div class="stake-title">Выбери ставку 🪙</div>
+      <div class="stake-buttons">
+        <button class="stake-button selected"
+                data-stake="10" onclick="selectStake(10)">10</button>
+        <button class="stake-button"
+                data-stake="20" onclick="selectStake(20)">20</button>
+        <button class="stake-button"
+                data-stake="50" onclick="selectStake(50)">50</button>
+      </div>
+
+      <button id="searchButton" class="wide" onclick="searchGame()">
+        Играть онлайн
+      </button>
     </section>
 
     <section id="waiting" class="hidden">
       <div class="hero">
-        <div class="waiting-icon">🔎</div>
-        <h1 style="font-size: 26px;">Ищем соперника</h1>
-        <p>Если игрок не найдётся, сыграешь с ботом через:</p>
-        <div class="timer"><span id="timer">30</span> с</div>
+        <div class="hero-icon">🔎</div>
+        <h1>Ищем соперника</h1>
+        <p>На кону: <span id="waitingStake">10</span> 🪙</p>
+        <p>Оставшееся время показано очками карт:</p>
+
+        <div id="timerCards" class="cards timer-cards"></div>
+        <div id="timerNote" class="timer-note"></div>
+
+        <p>Когда время закончится, начнётся игра с ботом.</p>
       </div>
-      <button id="cancelButton" class="secondary" onclick="cancelSearch()">
+
+      <button id="cancelButton" class="wide secondary"
+              onclick="cancelSearch()">
         Отменить поиск
       </button>
     </section>
@@ -290,18 +321,23 @@
           <span id="myPoints" class="score">0 очков</span>
         </div>
         <div id="myCards" class="cards"></div>
+        <div id="gameStake" class="caption"></div>
       </div>
 
       <div id="result" class="result hidden"></div>
 
       <div id="actions" class="actions">
-        <button id="drawButton" onclick="play('draw')">＋ Ещё карту</button>
-        <button id="standButton" class="secondary" onclick="play('stand')">
+        <button id="drawButton" onclick="play('draw')">
+          ＋ Ещё карту
+        </button>
+        <button id="standButton" class="secondary"
+                onclick="play('stand')">
           Хватит
         </button>
       </div>
 
-      <button id="again" class="hidden" onclick="searchGame()">
+      <button id="again" class="wide hidden"
+              onclick="searchGame()">
         Играть ещё
       </button>
     </section>
@@ -310,7 +346,35 @@
   <script>
     const tg = window.Telegram?.WebApp;
     const message = document.getElementById("message");
+
+    let selectedStake = 10;
+    let currentBalance = 0;
     let busy = false;
+
+    // В этой игре: В = 2, Д = 3, К = 4, Т = 11.
+    // Карты таймера декоративные и не расходуют игровую колоду.
+    const timerCombinations = {
+      2:  ["В♠"],
+      3:  ["Д♠"],
+      4:  ["К♠"],
+      5:  ["В♠", "Д♥"],
+      6:  ["6♠"],
+      7:  ["7♠"],
+      8:  ["8♠"],
+      9:  ["9♠"],
+      10: ["10♠"],
+      11: ["Т♠"],
+      12: ["10♠", "В♥"],
+      13: ["10♠", "Д♥"],
+      14: ["10♠", "К♥"],
+      15: ["9♠", "6♥"],
+      16: ["10♠", "6♥"],
+      17: ["10♠", "7♥"],
+      18: ["10♠", "8♥"],
+      19: ["10♠", "9♥"],
+      20: ["10♠", "10♥"],
+      21: ["Т♠", "10♥"]
+    };
 
     function show(section) {
       for (const id of ["menu", "waiting", "game"]) {
@@ -321,11 +385,41 @@
       }
     }
 
+    function updateBalance(value) {
+      currentBalance = value;
+      document.getElementById("balance").textContent =
+        `🪙 ${value}`;
+
+      for (const button of document.querySelectorAll(
+        ".stake-button"
+      )) {
+        button.disabled =
+          busy || Number(button.dataset.stake) > value;
+      }
+
+      document.getElementById("searchButton").disabled =
+        busy || selectedStake > value;
+    }
+
+    function selectStake(stake) {
+      selectedStake = stake;
+
+      for (const button of document.querySelectorAll(
+        ".stake-button"
+      )) {
+        button.classList.toggle(
+          "selected",
+          Number(button.dataset.stake) === stake
+        );
+      }
+
+      updateBalance(currentBalance);
+    }
+
     function setBusy(value) {
       busy = value;
 
       for (const id of [
-        "searchButton",
         "cancelButton",
         "drawButton",
         "standButton",
@@ -333,6 +427,8 @@
       ]) {
         document.getElementById(id).disabled = value;
       }
+
+      updateBalance(currentBalance);
     }
 
     async function request(path, extra = {}) {
@@ -350,7 +446,9 @@
 
         try {
           const data = await response.json();
-          if (typeof data.detail === "string") detail = data.detail;
+          if (typeof data.detail === "string") {
+            detail = data.detail;
+          }
         } catch (_) {}
 
         throw new Error(detail);
@@ -380,8 +478,8 @@
       return card;
     }
 
-    function displayCards(containerId, labels, hidden = false) {
-      const container = document.getElementById(containerId);
+    function displayCards(id, labels, hidden = false) {
+      const container = document.getElementById(id);
       container.replaceChildren();
 
       if (hidden) {
@@ -399,8 +497,28 @@
       }
     }
 
+    function renderTimer(seconds) {
+      const cards = timerCombinations[seconds];
+      const container = document.getElementById("timerCards");
+      container.replaceChildren();
+
+      if (cards) {
+        for (const label of cards) {
+          container.appendChild(makeCard(label));
+        }
+        document.getElementById("timerNote").textContent = "";
+      } else {
+        document.getElementById("timerNote").textContent =
+          "Сейчас начнём…";
+      }
+    }
+
     function render(state) {
       message.classList.remove("error");
+
+      if (typeof state.balance === "number") {
+        updateBalance(state.balance);
+      }
 
       if (state.status === "idle") {
         message.textContent = "Набери 21 очко и обыграй соперника.";
@@ -409,14 +527,18 @@
       }
 
       if (state.status === "waiting") {
-        message.textContent = "Подбираем соперника…";
-        document.getElementById("timer").textContent =
-          state.seconds_left;
+        message.textContent = "Подбираем игрока…";
+        document.getElementById("waitingStake").textContent =
+          state.stake;
+        renderTimer(state.seconds_left);
         show("waiting");
         return;
       }
 
-      if (state.status !== "playing" && state.status !== "result") {
+      if (
+        state.status !== "playing" &&
+        state.status !== "result"
+      ) {
         return;
       }
 
@@ -430,6 +552,9 @@
 
       document.getElementById("myPoints").textContent =
         `${state.my_points} очков`;
+
+      document.getElementById("gameStake").textContent =
+        `Ставка: ${state.stake} 🪙`;
 
       displayCards("myCards", state.my_cards);
       displayCards(
@@ -465,9 +590,11 @@
 
       if (finished) {
         result.textContent =
-          state.winner === "me" ? "Победа! 🏆" :
-          state.winner === "opponent" ? "Победил соперник" :
-          "Ничья 🤝";
+          state.winner === "me"
+            ? `Победа! +${state.stake} 🪙 🏆`
+            : state.winner === "opponent"
+              ? `Поражение. −${state.stake} 🪙`
+              : "Ничья — ставка возвращена 🤝";
 
         message.textContent = "Раунд завершён";
       } else if (state.my_finished) {
@@ -487,10 +614,10 @@
       setBusy(true);
 
       try {
-        show("waiting");
-        render(await request("/api/search"));
+        render(await request("/api/search", {
+          stake: selectedStake
+        }));
       } catch (error) {
-        show("menu");
         showError(error);
       } finally {
         setBusy(false);
@@ -534,7 +661,8 @@
       tg.ready();
 
       try {
-        await request("/api/login");
+        const player = await request("/api/login");
+        updateBalance(player.balance);
         render(await request("/api/state"));
       } catch (error) {
         showError(error);
@@ -544,10 +672,13 @@
       setInterval(async () => {
         if (busy) return;
 
+        busy = true;
         try {
           render(await request("/api/state"));
         } catch (error) {
           showError(error);
+        } finally {
+          busy = false;
         }
       }, 2000);
     }
