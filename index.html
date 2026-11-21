@@ -7,66 +7,263 @@
   <title>Игра 21</title>
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
       min-height: 100vh;
-      padding: 32px 20px;
+      padding: 32px 18px;
       background: #141414;
-      color: #ffffff;
+      color: white;
       font-family: Arial, sans-serif;
       text-align: center;
     }
 
-    h1 {
-      margin-top: 48px;
-      font-size: 32px;
+    h1 { margin: 32px 0 12px; }
+    #message { line-height: 1.5; }
+
+    button {
+      display: block;
+      width: 100%;
+      max-width: 320px;
+      margin: 14px auto;
+      padding: 16px;
+      border: 0;
+      border-radius: 12px;
+      background: #32a76b;
+      color: white;
+      font-size: 17px;
+      font-weight: bold;
     }
 
-    #status {
-      margin-top: 24px;
-      font-size: 18px;
-      line-height: 1.5;
-      color: #ffffff;
+    button.secondary { background: #414141; }
+
+    button:disabled {
+      opacity: 0.5;
     }
+
+    .cards {
+      margin: 18px 0 30px;
+      font-size: 28px;
+      line-height: 1.6;
+    }
+
+    .panel {
+      margin: 28px auto;
+      max-width: 380px;
+      padding: 20px;
+      border-radius: 16px;
+      background: #242424;
+    }
+
+    .hidden { display: none; }
+    .error { color: #ff9292; }
   </style>
 </head>
 
 <body>
   <h1>Игра «21» 🃏</h1>
-  <p id="status">Загружаем профиль…</p>
+  <p id="message">Входим через Telegram…</p>
+
+  <div id="menu" class="hidden">
+    <button onclick="searchGame()">Играть онлайн</button>
+  </div>
+
+  <div id="waiting" class="hidden">
+    <div class="panel">
+      <p>Ищем соперника…</p>
+      <p>Если никого не найдём, через <b id="timer">30</b> сек. начнётся игра с ботом.</p>
+    </div>
+    <button class="secondary" onclick="cancelSearch()">Отменить поиск</button>
+  </div>
+
+  <div id="game" class="hidden">
+    <div class="panel">
+      <h2 id="opponent">Соперник</h2>
+      <div id="opponentCards" class="cards">🂠 🂠</div>
+      <div id="opponentStatus">Карты скрыты до конца раунда</div>
+    </div>
+
+    <div class="panel">
+      <h2>Твои карты</h2>
+      <div id="myCards" class="cards"></div>
+      <div id="myPoints"></div>
+    </div>
+
+    <div id="actions">
+      <button onclick="play('draw')">Ещё карту</button>
+      <button class="secondary" onclick="play('stand')">Хватит</button>
+    </div>
+
+    <button id="again" class="hidden" onclick="searchGame()">
+      Играть ещё
+    </button>
+  </div>
 
   <script>
-    async function start() {
-      const status = document.getElementById("status");
-      const tg = window.Telegram?.WebApp;
+    const tg = window.Telegram?.WebApp;
+    const message = document.getElementById("message");
 
+    function show(section) {
+      for (const id of ["menu", "waiting", "game"]) {
+        document.getElementById(id).classList.toggle(
+          "hidden",
+          id !== section
+        );
+      }
+    }
+
+    async function request(path, extra = {}) {
+      const response = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          init_data: tg.initData,
+          ...extra
+        })
+      });
+
+      if (!response.ok) {
+        let detail = `Ошибка сервера: ${response.status}`;
+
+        try {
+          const data = await response.json();
+          if (typeof data.detail === "string") detail = data.detail;
+        } catch (_) {}
+
+        throw new Error(detail);
+      }
+
+      return response.json();
+    }
+
+    function render(state) {
+      if (state.status === "idle") {
+        message.textContent = "Выбери режим игры.";
+        show("menu");
+        return;
+      }
+
+      if (state.status === "waiting") {
+        message.textContent = "Подбираем соперника…";
+        document.getElementById("timer").textContent =
+          state.seconds_left;
+        show("waiting");
+        return;
+      }
+
+      if (state.status !== "playing" && state.status !== "result") {
+        return;
+      }
+
+      show("game");
+
+      document.getElementById("opponent").textContent =
+        state.is_bot
+          ? "Соперник: бот 🤖"
+          : `Соперник: ${state.opponent_name}`;
+
+      document.getElementById("myCards").textContent =
+        state.my_cards.join("  ");
+
+      document.getElementById("myPoints").textContent =
+        `Очки: ${state.my_points}`;
+
+      const finished = state.status === "result";
+
+      document.getElementById("opponentCards").textContent =
+        finished ? state.opponent_cards.join("  ") : "🂠 🂠";
+
+      document.getElementById("opponentStatus").textContent =
+        finished
+          ? `Очки соперника: ${state.opponent_points}`
+          : state.opponent_finished
+            ? "Соперник закончил ход"
+            : "Карты скрыты до конца раунда";
+
+      document.getElementById("actions").classList.toggle(
+        "hidden",
+        finished || state.my_finished
+      );
+
+      document.getElementById("again").classList.toggle(
+        "hidden",
+        !finished
+      );
+
+      if (finished) {
+        message.textContent =
+          state.winner === "me" ? "Ты победил! 🎉" :
+          state.winner === "opponent" ? "Победил соперник." :
+          "Ничья!";
+      } else if (state.my_finished) {
+        message.textContent = "Ждём, пока соперник закончит ход…";
+      } else {
+        message.textContent = "Возьми карту или закончи ход.";
+      }
+    }
+
+    async function searchGame() {
+      try {
+        message.classList.remove("error");
+        message.textContent = "Ищем соперника…";
+        show("waiting");
+        render(await request("/api/search"));
+      } catch (error) {
+        show("menu");
+        showError(error);
+      }
+    }
+
+    async function cancelSearch() {
+      try {
+        render(await request("/api/cancel"));
+      } catch (error) {
+        showError(error);
+      }
+    }
+
+    async function play(action) {
+      try {
+        render(await request("/api/play", { action }));
+      } catch (error) {
+        showError(error);
+      }
+    }
+
+    function showError(error) {
+      message.classList.add("error");
+      message.textContent = error.message;
+    }
+
+    async function start() {
       if (!tg?.initData) {
-        status.textContent = "Открой игру через кнопку Telegram-бота.";
+        showError(new Error(
+          "Открой игру через кнопку своего Telegram-бота."
+        ));
         return;
       }
 
       tg.ready();
 
       try {
-        const response = await fetch("/api/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ init_data: tg.initData })
-        });
-
-        if (!response.ok) {
-          throw new Error(`Ошибка входа: ${response.status}`);
-        }
-
-        const player = await response.json();
-        status.textContent = `Привет, ${player.first_name}! Вход выполнен.`;
+        const player = await request("/api/login");
+        message.textContent = `Привет, ${player.first_name}!`;
+        render(await request("/api/state"));
       } catch (error) {
-        status.textContent = error.message;
+        showError(error);
+        return;
       }
+
+      // Обновляем поиск и состояние онлайн-партии.
+      setInterval(async () => {
+        try {
+          const state = await request("/api/state");
+          render(state);
+        } catch (error) {
+          showError(error);
+        }
+      }, 2000);
     }
 
     start();
