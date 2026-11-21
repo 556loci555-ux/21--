@@ -1,8 +1,9 @@
 import hashlib
 import hmac
 import json
+import math
 import os
-import random
+import secrets
 import sqlite3
 import threading
 import time
@@ -22,22 +23,28 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")
 if not BOT_TOKEN:
     raise RuntimeError("Не задан BOT_TOKEN")
 
+START_BALANCE = 100
+ALLOWED_STAKES = {10, 20, 50}
+SEARCH_SECONDS = 21
+
 app = FastAPI(title="Игра 21")
 
-# Первая версия: очередь и партии хранятся в памяти одного процесса.
+# Прототип для одного процесса Render.
 lock = threading.Lock()
-waiting = {}       # telegram_id -> время начала поиска
-last_seen = {}     # telegram_id -> время последнего запроса
-games = {}         # game_id -> состояние партии
-player_games = {}  # telegram_id -> game_id
+waiting = {}       # id -> {started, seen, stake, name}
+games = {}         # game_id -> игра
+player_games = {}  # id -> game_id
 
 
 class LoginRequest(BaseModel):
     init_data: str
 
 
-class PlayRequest(BaseModel):
-    init_data: str
+class SearchRequest(LoginRequest):
+    stake: int
+
+
+class PlayRequest(LoginRequest):
     action: str
 
 
@@ -48,9 +55,21 @@ def init_db():
                 telegram_id INTEGER PRIMARY KEY,
                 first_name TEXT NOT NULL,
                 username TEXT,
-                created_at INTEGER NOT NULL
+                created_at INTEGER NOT NULL,
+                balance INTEGER NOT NULL DEFAULT 100
             )
         """)
+
+        # Обновление базы, если игроки уже были зарегистрированы
+        # предыдущей версией приложения.
+        columns = {
+            row[1] for row in db.execute("PRAGMA table_info(players)")
+        }
+        if "balance" not in columns:
+            db.execute(
+                "ALTER TABLE players "
+                "ADD COLUMN balance INTEGER NOT NULL DEFAULT 100"
+            )
 
 
 init_db()
@@ -70,12 +89,10 @@ def telegram_user(init_data: str) -> dict:
         raise HTTPException(401, "Неверный формат данных Telegram")
 
     data = dict(pairs)
-
     if len(data) != len(pairs):
         raise HTTPException(401, "Повторяющиеся параметры Telegram")
 
     received_hash = data.pop("hash", None)
-
     if (
         not received_hash
         or len(received_hash) != 64
@@ -89,17 +106,17 @@ def telegram_user(init_data: str) -> dict:
 
     secret = hmac.new(
         b"WebAppData",
-        BOT_TOKEN.encode("utf-8"),
+        BOT_TOKEN.encode(),
         hashlib.sha256,
     ).digest()
 
-    expected_hash = hmac.new(
+    expected = hmac.new(
         secret,
-        check_string.encode("utf-8"),
+        check_string.encode(),
         hashlib.sha256,
     ).hexdigest()
 
-    if not hmac.compare_digest(expected_hash, received_hash.lower()):
+    if not hmac.compare_digest(expected, received_hash.lower()):
         raise HTTPException(401, "Неверная подпись Telegram")
 
     try:
@@ -109,9 +126,11 @@ def telegram_user(init_data: str) -> dict:
         raise HTTPException(401, "Неверные данные пользователя")
 
     now = int(time.time())
-
     if auth_date > now + 60 or now - auth_date > 3600:
-        raise HTTPException(401, "Данные входа устарели. Открой игру заново")
+        raise HTTPException(
+            401,
+            "Данные входа устарели. Закрой и открой игру заново",
+        )
 
     if (
         not isinstance(user, dict)
@@ -125,6 +144,59 @@ def telegram_user(init_data: str) -> dict:
     return user
 
 
+def ensure_player(db, user):
+    username = user.get("username")
+    if not isinstance(username, (str, type(None))):
+        username = None
+
+    db.execute(
+        """
+        INSERT INTO players
+            (telegram_id, first_name, username, created_at, balance)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(telegram_id) DO UPDATE SET
+            first_name = excluded.first_name,
+            username = excluded.username
+        """,
+        (
+            user["id"],
+            user["first_name"],
+            username,
+            int(time.time()),
+            START_BALANCE,
+        ),
+    )
+
+
+def balance_of(db, player_id):
+    row = db.execute(
+        "SELECT balance FROM players WHERE telegram_id = ?",
+        (player_id,),
+    ).fetchone()
+    return row[0] if row else 0
+
+
+def reserve(db, player_id, stake):
+    result = db.execute(
+        """
+        UPDATE players
+        SET balance = balance - ?
+        WHERE telegram_id = ? AND balance >= ?
+        """,
+        (stake, player_id, stake),
+    )
+    if result.rowcount != 1:
+        raise HTTPException(400, "Недостаточно фишек для ставки")
+
+
+def refund(db, player_id, stake):
+    db.execute(
+        "UPDATE players SET balance = balance + ? "
+        "WHERE telegram_id = ?",
+        (stake, player_id),
+    )
+
+
 def make_deck():
     suits = ["♠", "♥", "♦", "♣"]
     ranks = [
@@ -132,91 +204,146 @@ def make_deck():
         ("10", 10), ("В", 2), ("Д", 3),
         ("К", 4), ("Т", 11),
     ]
-
     deck = [
-        {"label": f"{rank}{suit}", "points": points}
+        {"label": rank + suit, "points": value}
         for suit in suits
-        for rank, points in ranks
+        for rank, value in ranks
     ]
-    random.SystemRandom().shuffle(deck)
+    secrets.SystemRandom().shuffle(deck)
     return deck
 
 
-def points(cards):
+def score(cards):
     return sum(card["points"] for card in cards)
 
 
-def new_game(player_ids, names, bot=False):
-    game_id = uuid.uuid4().hex
+def winner_of(game):
+    first, second = game["players"]
+    a = score(game["hands"][first])
+    b = score(game["hands"][second])
+
+    if a > 21 and b > 21:
+        return None
+    if a > 21:
+        return second
+    if b > 21:
+        return first
+    if a > b:
+        return first
+    if b > a:
+        return second
+    return None
+
+
+def finish_game(db, game):
+    # Вызывать только после завершения ходов, под lock.
+    if game["result"]:
+        return
+
+    game["winner"] = winner_of(game)
+    game["result"] = True
+    first, second = game["players"]
+    stake = game["stake"]
+
+    if game["winner"] is None:
+        for pid in (first, second):
+            if pid != "bot":
+                refund(db, pid, stake)
+    elif game["winner"] != "bot":
+        # Победитель получает свою ставку обратно
+        # и столько же фишек выигрыша.
+        refund(db, game["winner"], stake * 2)
+
+
+def create_game(player_ids, names, stake, bot=False):
     deck = make_deck()
+    game_id = uuid.uuid4().hex
 
     game = {
         "players": player_ids,
         "names": names,
+        "stake": stake,
         "bot": bot,
         "deck": deck,
-        "hands": {pid: [deck.pop(), deck.pop()] for pid in player_ids},
+        "hands": {
+            pid: [deck.pop(), deck.pop()] for pid in player_ids
+        },
         "finished": {pid: False for pid in player_ids},
         "result": False,
+        "winner": None,
     }
 
     games[game_id] = game
-
     for pid in player_ids:
-        player_games[pid] = game_id
-        waiting.pop(pid, None)
+        if pid != "bot":
+            player_games[pid] = game_id
+            waiting.pop(pid, None)
 
     return game
 
 
-def game_state(player_id):
+def game_state(db, player_id):
     game_id = player_games.get(player_id)
+    game = games.get(game_id) if game_id else None
 
-    if not game_id or game_id not in games:
-        return {"status": "idle"}
+    if not game:
+        return {
+            "status": "idle",
+            "balance": balance_of(db, player_id),
+        }
 
-    game = games[game_id]
     opponent_id = next(
         pid for pid in game["players"] if pid != player_id
     )
+    mine = game["hands"][player_id]
+    theirs = game["hands"][opponent_id]
 
-    my_cards = game["hands"][player_id]
-    opponent_cards = game["hands"][opponent_id]
-
-    response = {
+    state = {
         "status": "result" if game["result"] else "playing",
+        "balance": balance_of(db, player_id),
+        "stake": game["stake"],
         "opponent_name": game["names"][opponent_id],
         "is_bot": game["bot"],
-        "my_cards": [card["label"] for card in my_cards],
-        "my_points": points(my_cards),
+        "my_cards": [card["label"] for card in mine],
+        "my_points": score(mine),
         "my_finished": game["finished"][player_id],
         "opponent_finished": game["finished"][opponent_id],
     }
 
     if game["result"]:
-        my_score = points(my_cards)
-        opponent_score = points(opponent_cards)
-
-        if my_score > 21:
-            winner = "opponent"
-        elif opponent_score > 21:
-            winner = "me"
-        elif my_score > opponent_score:
-            winner = "me"
-        elif opponent_score > my_score:
-            winner = "opponent"
-        else:
-            winner = "draw"
-
-        response.update({
-            "opponent_cards": [
-                card["label"] for card in opponent_cards
-            ],
-            "opponent_points": opponent_score,
-            "winner": winner,
+        state.update({
+            "opponent_cards": [card["label"] for card in theirs],
+            "opponent_points": score(theirs),
+            "winner": (
+                "draw" if game["winner"] is None
+                else "me" if game["winner"] == player_id
+                else "opponent"
+            ),
         })
 
-    return response
+    return state
+
+
+def waiting_state(db, player_id, now):
+    entry = waiting[player_id]
+    left = max(0, math.ceil(
+        SEARCH_SECONDS - (now - entry["started"])
+    ))
+    return {
+        "status": "waiting",
+        "seconds_left": left,
+        "stake": entry["stake"],
+        "balance": balance_of(db, player_id),
+    }
+
+
+def clean_inactive_waiters(db, now, except_id=None):
+    # Игрок, закрывший приложение, не должен вечно занимать очередь
+    # или терять зарезервированную ставку.
+    for pid, entry in list(waiting.items()):
+        if pid != except_id and now - entry["seen"] > 15:
+            refund(db, pid, entry["stake"])
+            waiting.pop(pid, None)
 
 
 @app.get("/")
@@ -232,172 +359,167 @@ def health():
 @app.post("/api/login")
 def login(body: LoginRequest):
     user = telegram_user(body.init_data)
-
-    username = user.get("username")
-    if not isinstance(username, (str, type(None))):
-        username = None
-
-    with sqlite3.connect(DB_PATH) as db:
-        db.execute(
-            """
-            INSERT INTO players
-                (telegram_id, first_name, username, created_at)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(telegram_id) DO UPDATE SET
-                first_name = excluded.first_name,
-                username = excluded.username
-            """,
-            (
-                user["id"],
-                user["first_name"],
-                username,
-                int(time.time()),
-            ),
-        )
-
-    return {
-        "telegram_id": user["id"],
-        "first_name": user["first_name"],
-    }
+    with lock, sqlite3.connect(DB_PATH) as db:
+        ensure_player(db, user)
+        return {
+            "telegram_id": user["id"],
+            "first_name": user["first_name"],
+            "balance": balance_of(db, user["id"]),
+        }
 
 
 @app.post("/api/search")
-def search(body: LoginRequest):
+def search(body: SearchRequest):
     user = telegram_user(body.init_data)
-    player_id = user["id"]
+    pid = user["id"]
+
+    if type(body.stake) is not int or body.stake not in ALLOWED_STAKES:
+        raise HTTPException(400, "Допустимые ставки: 10, 20 или 50")
+
     now = time.monotonic()
 
-    with lock:
-        last_seen[player_id] = now
+    with lock, sqlite3.connect(DB_PATH) as db:
+        ensure_player(db, user)
+        clean_inactive_waiters(db, now, except_id=pid)
 
-        # Если старая партия закончилась — разрешаем искать новую.
-        old_game_id = player_games.get(player_id)
-        if old_game_id:
-            old_game = games.get(old_game_id)
-            if old_game and not old_game["result"]:
-                return game_state(player_id)
-            player_games.pop(player_id, None)
+        old_id = player_games.get(pid)
+        old = games.get(old_id) if old_id else None
 
-        if player_id in waiting:
-            return {
-                "status": "waiting",
-                "seconds_left": max(
-                    0, 30 - int(now - waiting[player_id])
-                ),
-            }
+        if old and not old["result"]:
+            return game_state(db, pid)
 
-        # Не подбираем игрока, который давно закрыл приложение.
-        for other_id in list(waiting):
-            if now - last_seen.get(other_id, 0) > 10:
-                waiting.pop(other_id, None)
-                last_seen.pop(other_id, None)
+        if pid in waiting:
+            waiting[pid]["seen"] = now
+            return waiting_state(db, pid, now)
 
-        if waiting:
-            other_id = next(iter(waiting))
+        # Сыгранный раунд остаётся доступен второму игроку,
+        # но этот игрок может начать искать новую партию.
+        if old:
+            player_games.pop(pid, None)
 
-            with sqlite3.connect(DB_PATH) as db:
-                row = db.execute(
-                    "SELECT first_name FROM players WHERE telegram_id = ?",
-                    (other_id,),
-                ).fetchone()
+        if balance_of(db, pid) < body.stake:
+            raise HTTPException(400, "Недостаточно фишек для ставки")
 
-            if row:
-                new_game(
-                    [other_id, player_id],
-                    {
-                        other_id: row[0],
-                        player_id: user["first_name"],
-                    },
-                )
-                return game_state(player_id)
+        opponent_id = None
+        for other_id, entry in waiting.items():
+            if (
+                other_id != pid
+                and entry["stake"] == body.stake
+                and now - entry["started"] < SEARCH_SECONDS
+            ):
+                opponent_id = other_id
+                break
 
-            waiting.pop(other_id, None)
+        reserve(db, pid, body.stake)
 
-        waiting[player_id] = now
-        return {"status": "waiting", "seconds_left": 30}
+        if opponent_id is not None:
+            create_game(
+                [opponent_id, pid],
+                {
+                    opponent_id: waiting[opponent_id]["name"],
+                    pid: user["first_name"],
+                },
+                body.stake,
+            )
+            return game_state(db, pid)
+
+        waiting[pid] = {
+            "started": now,
+            "seen": now,
+            "stake": body.stake,
+            "name": user["first_name"],
+        }
+        return waiting_state(db, pid, now)
 
 
 @app.post("/api/state")
 def state(body: LoginRequest):
     user = telegram_user(body.init_data)
-    player_id = user["id"]
+    pid = user["id"]
     now = time.monotonic()
 
-    with lock:
-        last_seen[player_id] = now
+    with lock, sqlite3.connect(DB_PATH) as db:
+        ensure_player(db, user)
+        clean_inactive_waiters(db, now, except_id=pid)
 
-        if player_id in player_games:
-            return game_state(player_id)
+        if pid in player_games:
+            return game_state(db, pid)
 
-        started = waiting.get(player_id)
+        entry = waiting.get(pid)
+        if entry is None:
+            return {
+                "status": "idle",
+                "balance": balance_of(db, pid),
+            }
 
-        if started is None:
-            return {"status": "idle"}
+        entry["seen"] = now
 
-        elapsed = now - started
-
-        if elapsed >= 30:
-            new_game(
-                [player_id, "bot"],
-                {
-                    player_id: user["first_name"],
-                    "bot": "Бот",
-                },
+        if now - entry["started"] >= SEARCH_SECONDS:
+            create_game(
+                [pid, "bot"],
+                {pid: user["first_name"], "bot": "Бот"},
+                entry["stake"],
                 bot=True,
             )
-            return game_state(player_id)
+            return game_state(db, pid)
 
-        return {
-            "status": "waiting",
-            "seconds_left": max(0, 30 - int(elapsed)),
-        }
+        return waiting_state(db, pid, now)
 
 
 @app.post("/api/cancel")
 def cancel(body: LoginRequest):
     user = telegram_user(body.init_data)
+    pid = user["id"]
 
-    with lock:
-        waiting.pop(user["id"], None)
-        last_seen.pop(user["id"], None)
+    with lock, sqlite3.connect(DB_PATH) as db:
+        ensure_player(db, user)
+        entry = waiting.pop(pid, None)
 
-    return {"status": "idle"}
+        if entry:
+            refund(db, pid, entry["stake"])
+
+        if pid in player_games:
+            return game_state(db, pid)
+
+        return {
+            "status": "idle",
+            "balance": balance_of(db, pid),
+        }
 
 
 @app.post("/api/play")
 def play(body: PlayRequest):
     user = telegram_user(body.init_data)
-    player_id = user["id"]
+    pid = user["id"]
 
     if body.action not in ("draw", "stand"):
         raise HTTPException(400, "Неизвестное действие")
 
-    with lock:
-        game_id = player_games.get(player_id)
+    with lock, sqlite3.connect(DB_PATH) as db:
+        ensure_player(db, user)
+
+        game_id = player_games.get(pid)
         game = games.get(game_id) if game_id else None
 
         if not game or game["result"]:
             raise HTTPException(400, "Активная партия не найдена")
 
-        if game["finished"][player_id]:
+        if game["finished"][pid]:
             raise HTTPException(400, "Ты уже закончил ход")
 
         if body.action == "draw":
-            game["hands"][player_id].append(game["deck"].pop())
-
-            if points(game["hands"][player_id]) >= 21:
-                game["finished"][player_id] = True
+            game["hands"][pid].append(game["deck"].pop())
+            if score(game["hands"][pid]) >= 21:
+                game["finished"][pid] = True
         else:
-            game["finished"][player_id] = True
+            game["finished"][pid] = True
 
-        if game["bot"] and game["finished"][player_id]:
-            # Бот добирает карты до 17 очков.
-            while points(game["hands"]["bot"]) < 17:
+        if game["bot"] and game["finished"][pid]:
+            while score(game["hands"]["bot"]) < 17:
                 game["hands"]["bot"].append(game["deck"].pop())
-
             game["finished"]["bot"] = True
 
         if all(game["finished"].values()):
-            game["result"] = True
+            finish_game(db, game)
 
-        return game_state(player_id)
+        return game_state(db, pid)
